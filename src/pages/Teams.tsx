@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import TeamRoster from '@/components/TeamRoster';
 import PlayerCard from '@/components/PlayerCard';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, getDefaultOwnerId } from '@/integrations/supabase/client';
 
 // Interface definitions for better type safety
 interface Player {
@@ -108,10 +108,16 @@ const Teams = () => {
   const handleAddTeam = async () => {
     if (newTeamName) {
       try {
+        // Get the owner ID
+        const ownerId = await getDefaultOwnerId();
+        
         // Save team to database
         const { data, error } = await supabase
           .from('teams')
-          .insert([{ name: newTeamName }])
+          .insert({ 
+            name: newTeamName, 
+            owner_id: ownerId 
+          })
           .select();
         
         if (error) {
