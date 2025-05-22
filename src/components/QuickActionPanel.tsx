@@ -2,9 +2,8 @@
 import { 
   Check, 
   ChevronRight, 
-  MinusIcon, 
-  Plus, 
-  X 
+  X, 
+  Plus 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -33,67 +32,55 @@ const QuickActionPanel = ({
         <Button 
           variant="outline" 
           onClick={onBallAction}
-          className="quick-action-btn"
+          className="h-20 flex flex-col items-center justify-center border-baseball-navy hover:bg-blue-50"
         >
-          <div className="text-center">
-            <div className="text-sm mb-1">Ball</div>
-            <div className="text-2xl font-bold">B</div>
-          </div>
+          <div className="text-sm mb-1">Ball</div>
+          <div className="text-2xl font-bold">B</div>
         </Button>
         
         <Button 
           variant="outline" 
           onClick={onStrikeAction}
-          className="quick-action-btn"
+          className="h-20 flex flex-col items-center justify-center border-baseball-navy hover:bg-blue-50"
         >
-          <div className="text-center">
-            <div className="text-sm mb-1">Strike</div>
-            <div className="text-2xl font-bold">S</div>
-          </div>
+          <div className="text-sm mb-1">Strike</div>
+          <div className="text-2xl font-bold">S</div>
         </Button>
         
         <Button 
           variant="outline" 
           onClick={onOutAction}
-          className="quick-action-btn danger"
+          className="h-20 flex flex-col items-center justify-center border-red-500 text-red-500 hover:bg-red-50"
         >
-          <div className="text-center">
-            <div className="text-sm mb-1">Out</div>
-            <X size={20} className="mx-auto" />
-          </div>
+          <div className="text-sm mb-1">Out</div>
+          <X size={20} className="mx-auto" />
         </Button>
         
         <Button 
           variant="outline" 
           onClick={onHitAction}
-          className="quick-action-btn success"
+          className="h-20 flex flex-col items-center justify-center border-green-500 text-green-500 hover:bg-green-50"
         >
-          <div className="text-center">
-            <div className="text-sm mb-1">Hit</div>
-            <Check size={20} className="mx-auto" />
-          </div>
+          <div className="text-sm mb-1">Hit</div>
+          <Check size={20} className="mx-auto" />
         </Button>
         
         <Button 
           variant="outline" 
           onClick={onRunAction}
-          className="quick-action-btn warning"
+          className="h-20 flex flex-col items-center justify-center border-orange-500 text-orange-500 hover:bg-orange-50"
         >
-          <div className="text-center">
-            <div className="text-sm mb-1">Run</div>
-            <Plus size={20} className="mx-auto" />
-          </div>
+          <div className="text-sm mb-1">Run</div>
+          <Plus size={20} className="mx-auto" />
         </Button>
         
         <Button 
           variant="outline" 
           onClick={onAdvanceInning}
-          className="quick-action-btn"
+          className="h-20 flex flex-col items-center justify-center border-baseball-navy hover:bg-blue-50"
         >
-          <div className="text-center">
-            <div className="text-sm mb-1">Inning</div>
-            <ChevronRight size={20} className="mx-auto" />
-          </div>
+          <div className="text-sm mb-1">Inning</div>
+          <ChevronRight size={20} className="mx-auto" />
         </Button>
       </div>
     </div>

@@ -9,7 +9,199 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      games: {
+        Row: {
+          created_at: string
+          game_date: string
+          home_score: number | null
+          id: string
+          location: string | null
+          opponent: string
+          opponent_score: number | null
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          game_date: string
+          home_score?: number | null
+          id?: string
+          location?: string | null
+          opponent: string
+          opponent_score?: number | null
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          game_date?: string
+          home_score?: number | null
+          id?: string
+          location?: string | null
+          opponent?: string
+          opponent_score?: number | null
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "games_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      player_stats: {
+        Row: {
+          at_bats: number | null
+          created_at: string
+          game_id: string
+          hits: number | null
+          id: string
+          player_id: string
+          rbi: number | null
+          runs: number | null
+          strikeouts: number | null
+          updated_at: string
+          walks: number | null
+        }
+        Insert: {
+          at_bats?: number | null
+          created_at?: string
+          game_id: string
+          hits?: number | null
+          id?: string
+          player_id: string
+          rbi?: number | null
+          runs?: number | null
+          strikeouts?: number | null
+          updated_at?: string
+          walks?: number | null
+        }
+        Update: {
+          at_bats?: number | null
+          created_at?: string
+          game_id?: string
+          hits?: number | null
+          id?: string
+          player_id?: string
+          rbi?: number | null
+          runs?: number | null
+          strikeouts?: number | null
+          updated_at?: string
+          walks?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_stats_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      players: {
+        Row: {
+          batting_average: string | null
+          created_at: string
+          id: string
+          name: string
+          number: string | null
+          position: string | null
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          batting_average?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          number?: string | null
+          position?: string | null
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          batting_average?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          number?: string | null
+          position?: string | null
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "players_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id: string
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
+      teams: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          owner_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

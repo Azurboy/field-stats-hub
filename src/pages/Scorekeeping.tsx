@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -7,13 +7,23 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ScoreboardDisplay from '@/components/ScoreboardDisplay';
 import QuickActionPanel from '@/components/QuickActionPanel';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+
+interface Team {
+  id: string;
+  name: string;
+}
 
 const Scorekeeping = () => {
   const [activeTab, setActiveTab] = useState('scorekeeping');
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedHomeTeamId, setSelectedHomeTeamId] = useState<string>('');
+  const [selectedAwayTeamId, setSelectedAwayTeamId] = useState<string>('');
   
   // Game state
-  const [homeTeam, setHomeTeam] = useState('Eagles');
-  const [awayTeam, setAwayTeam] = useState('Tigers');
+  const [homeTeam, setHomeTeam] = useState('Home Team');
+  const [awayTeam, setAwayTeam] = useState('Away Team');
   const [homeScore, setHomeScore] = useState(0);
   const [awayScore, setAwayScore] = useState(0);
   const [inning, setInning] = useState(1);
@@ -26,11 +36,90 @@ const Scorekeeping = () => {
   const [currentBatter, setCurrentBatter] = useState('Select Batter');
   const [currentPitcher, setCurrentPitcher] = useState('Select Pitcher');
   
-  // Sample players - would come from team roster in a real app
-  const teamPlayers = {
-    home: ['Smith #12', 'Johnson #24', 'Rodriguez #8', 'Kim #16'],
-    away: ['Thompson #5', 'Davis #31', 'Wilson #22', 'Martinez #9']
-  };
+  // Team players (now we'll fetch these from the database)
+  const [homeTeamPlayers, setHomeTeamPlayers] = useState<{id: string; name: string; number: string}[]>([]);
+  const [awayTeamPlayers, setAwayTeamPlayers] = useState<{id: string; name: string; number: string}[]>([]);
+
+  // Fetch teams on component mount
+  useEffect(() => {
+    async function fetchTeams() {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('teams')
+          .select('id, name');
+        
+        if (error) {
+          throw error;
+        }
+        
+        if (data) {
+          setTeams(data);
+        }
+      } catch (error) {
+        console.error('Error fetching teams:', error);
+        toast.error('Failed to load teams');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchTeams();
+  }, []);
+
+  // Fetch players when a team is selected
+  useEffect(() => {
+    async function fetchPlayers(teamId: string, isHome: boolean) {
+      if (!teamId) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('players')
+          .select('id, name, number, position')
+          .eq('team_id', teamId);
+        
+        if (error) {
+          throw error;
+        }
+        
+        if (data) {
+          if (isHome) {
+            setHomeTeamPlayers(data);
+          } else {
+            setAwayTeamPlayers(data);
+          }
+        }
+      } catch (error) {
+        console.error(`Error fetching players for team ${teamId}:`, error);
+        toast.error('Failed to load players');
+      }
+    }
+
+    if (selectedHomeTeamId) {
+      fetchPlayers(selectedHomeTeamId, true);
+    }
+    
+    if (selectedAwayTeamId) {
+      fetchPlayers(selectedAwayTeamId, false);
+    }
+  }, [selectedHomeTeamId, selectedAwayTeamId]);
+
+  // Update team names when selection changes
+  useEffect(() => {
+    if (selectedHomeTeamId) {
+      const selected = teams.find(team => team.id === selectedHomeTeamId);
+      if (selected) {
+        setHomeTeam(selected.name);
+      }
+    }
+    
+    if (selectedAwayTeamId) {
+      const selected = teams.find(team => team.id === selectedAwayTeamId);
+      if (selected) {
+        setAwayTeam(selected.name);
+      }
+    }
+  }, [selectedHomeTeamId, selectedAwayTeamId, teams]);
   
   // Handle quick actions
   const handleBallAction = () => {
@@ -111,6 +200,8 @@ const Scorekeeping = () => {
     setBalls(0);
     setStrikes(0);
     setOuts(0);
+    setCurrentBatter('Select Batter');
+    setCurrentPitcher('Select Pitcher');
     toast.info('New game started');
   };
 
@@ -152,6 +243,48 @@ const Scorekeeping = () => {
           <TabsContent value="scorekeeping">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-6">
+                <Card className="p-4 mb-4">
+                  <h3 className="font-semibold text-lg mb-4">Game Setup</h3>
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Home Team</label>
+                      <Select
+                        value={selectedHomeTeamId}
+                        onValueChange={setSelectedHomeTeamId}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select Home Team" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {teams.map((team) => (
+                            <SelectItem key={team.id} value={team.id}>
+                              {team.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Away Team</label>
+                      <Select
+                        value={selectedAwayTeamId}
+                        onValueChange={setSelectedAwayTeamId}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select Away Team" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {teams.map((team) => (
+                            <SelectItem key={team.id} value={team.id}>
+                              {team.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </Card>
+                
                 <ScoreboardDisplay
                   homeTeam={homeTeam}
                   awayTeam={awayTeam}
@@ -187,13 +320,13 @@ const Scorekeeping = () => {
                         value={currentBatter}
                         onValueChange={setCurrentBatter}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full">
                           <SelectValue placeholder="Select Batter" />
                         </SelectTrigger>
                         <SelectContent>
-                          {(isBottom ? teamPlayers.home : teamPlayers.away).map((player) => (
-                            <SelectItem key={player} value={player}>
-                              {player}
+                          {(isBottom ? homeTeamPlayers : awayTeamPlayers).map((player) => (
+                            <SelectItem key={player.id} value={player.id}>
+                              {player.name} #{player.number}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -206,13 +339,13 @@ const Scorekeeping = () => {
                         value={currentPitcher}
                         onValueChange={setCurrentPitcher}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full">
                           <SelectValue placeholder="Select Pitcher" />
                         </SelectTrigger>
                         <SelectContent>
-                          {(isBottom ? teamPlayers.away : teamPlayers.home).map((player) => (
-                            <SelectItem key={player} value={player}>
-                              {player}
+                          {(isBottom ? awayTeamPlayers : homeTeamPlayers).map((player) => (
+                            <SelectItem key={player.id} value={player.id}>
+                              {player.name} #{player.number}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -255,28 +388,34 @@ const Scorekeeping = () => {
                 <Card className="p-4">
                   <h4 className="font-medium mb-3">{homeTeam} Lineup</h4>
                   <div className="space-y-2 text-sm">
-                    {teamPlayers.home.map((player, index) => (
-                      <div key={player} className="flex items-center p-2 border rounded-md">
+                    {homeTeamPlayers.map((player, index) => (
+                      <div key={player.id} className="flex items-center p-2 border rounded-md">
                         <div className="w-8 h-8 rounded-full bg-baseball-navy text-white flex items-center justify-center mr-3">
                           {index + 1}
                         </div>
-                        <div>{player}</div>
+                        <div>{player.name} #{player.number}</div>
                       </div>
                     ))}
+                    {homeTeamPlayers.length === 0 && (
+                      <div className="text-gray-500 p-2">No players available. Please select a team.</div>
+                    )}
                   </div>
                 </Card>
                 
                 <Card className="p-4">
                   <h4 className="font-medium mb-3">{awayTeam} Lineup</h4>
                   <div className="space-y-2 text-sm">
-                    {teamPlayers.away.map((player, index) => (
-                      <div key={player} className="flex items-center p-2 border rounded-md">
+                    {awayTeamPlayers.map((player, index) => (
+                      <div key={player.id} className="flex items-center p-2 border rounded-md">
                         <div className="w-8 h-8 rounded-full bg-baseball-navy text-white flex items-center justify-center mr-3">
                           {index + 1}
                         </div>
-                        <div>{player}</div>
+                        <div>{player.name} #{player.number}</div>
                       </div>
                     ))}
+                    {awayTeamPlayers.length === 0 && (
+                      <div className="text-gray-500 p-2">No players available. Please select a team.</div>
+                    )}
                   </div>
                 </Card>
               </div>

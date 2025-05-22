@@ -3,8 +3,30 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Calendar, ChartPieIcon, ClipboardCheck, Upload, Users } from 'lucide-react';
 import GameCard from '@/components/GameCard';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 const Index = () => {
+  const [session, setSession] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    setLoading(true);
+    
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+  
   // Sample game data - in a real app this would come from an API or database
   const recentGames = [
     {
@@ -84,22 +106,45 @@ const Index = () => {
                 Record plays, track stats, and analyze games with our intuitive scorekeeping system
               </p>
               <div className="space-x-4">
-                <Button 
-                  size="lg" 
-                  className="bg-baseball-green hover:bg-baseball-green/90"
-                  asChild
-                >
-                  <Link to="/scorekeeping">Start Scorekeeping</Link>
-                </Button>
-                
-                <Button 
-                  variant="outline" 
-                  size="lg" 
-                  className="border-white text-white hover:bg-white hover:text-baseball-navy"
-                  asChild
-                >
-                  <Link to="/teams">Manage Teams</Link>
-                </Button>
+                {session ? (
+                  <>
+                    <Button 
+                      size="lg" 
+                      className="bg-baseball-green hover:bg-baseball-green/90"
+                      asChild
+                    >
+                      <Link to="/scorekeeping">Start Scorekeeping</Link>
+                    </Button>
+                    
+                    <Button 
+                      variant="outline" 
+                      size="lg" 
+                      className="border-white text-white hover:bg-white hover:text-baseball-navy"
+                      asChild
+                    >
+                      <Link to="/teams">Manage Teams</Link>
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button 
+                      size="lg" 
+                      className="bg-baseball-green hover:bg-baseball-green/90"
+                      asChild
+                    >
+                      <Link to="/auth">Sign In</Link>
+                    </Button>
+                    
+                    <Button 
+                      variant="outline" 
+                      size="lg" 
+                      className="border-white text-white hover:bg-white hover:text-baseball-navy"
+                      asChild
+                    >
+                      <Link to="/auth?register=true">Register</Link>
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
             
