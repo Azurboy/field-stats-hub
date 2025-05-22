@@ -1,3 +1,6 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -35,19 +38,12 @@
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
@@ -96,6 +92,26 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
+  }
+  
+  .baseball-container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full;
+  }
+  
+  .quick-action-btn {
+    @apply flex items-center justify-center p-3 rounded-lg bg-baseball-navy text-white hover:bg-opacity-90 transition-all;
+  }
+  
+  .quick-action-btn.success {
+    @apply bg-baseball-green;
+  }
+  
+  .quick-action-btn.warning {
+    @apply bg-baseball-orange;
+  }
+  
+  .quick-action-btn.danger {
+    @apply bg-baseball-red;
   }
 }
