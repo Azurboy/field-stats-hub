@@ -1,13 +1,14 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import ScoreboardDisplay from '@/components/ScoreboardDisplay';
 import QuickActionPanel from '@/components/QuickActionPanel';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, getDefaultOwnerId } from '@/integrations/supabase/client';
 
 interface Team {
   id: string;
@@ -47,6 +48,16 @@ const Scorekeeping = () => {
   const [homeTeamPlayers, setHomeTeamPlayers] = useState<Player[]>([]);
   const [awayTeamPlayers, setAwayTeamPlayers] = useState<Player[]>([]);
 
+  // New team and player creation states
+  const [newTeamName, setNewTeamName] = useState('');
+  const [newPlayerName, setNewPlayerName] = useState('');
+  const [newPlayerNumber, setNewPlayerNumber] = useState('');
+  const [newPlayerPosition, setNewPlayerPosition] = useState('');
+  const [showHomeTeamDialog, setShowHomeTeamDialog] = useState(false);
+  const [showAwayTeamDialog, setShowAwayTeamDialog] = useState(false);
+  const [showHomePlayerDialog, setShowHomePlayerDialog] = useState(false);
+  const [showAwayPlayerDialog, setShowAwayPlayerDialog] = useState(false);
+
   // Fetch teams on component mount
   useEffect(() => {
     fetchTeams();
@@ -75,6 +86,52 @@ const Scorekeeping = () => {
       setLoading(false);
     }
   }
+
+  // Handle team creation
+  const handleAddTeam = async (isHome: boolean) => {
+    if (!newTeamName.trim()) {
+      toast.error('Please enter a team name');
+      return;
+    }
+
+    try {
+      // Get the owner ID
+      const ownerId = await getDefaultOwnerId();
+      
+      // Save team to database
+      const { data, error } = await supabase
+        .from('teams')
+        .insert({ 
+          name: newTeamName, 
+          owner_id: ownerId 
+        })
+        .select();
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (data && data[0]) {
+        // Add to teams state
+        setTeams(prevTeams => [...prevTeams, data[0]]);
+        
+        // Set as selected team
+        if (isHome) {
+          setSelectedHomeTeamId(data[0].id);
+          setShowHomeTeamDialog(false);
+        } else {
+          setSelectedAwayTeamId(data[0].id);
+          setShowAwayTeamDialog(false);
+        }
+        
+        setNewTeamName('');
+        toast.success(`${data[0].name} added`);
+      }
+    } catch (error) {
+      console.error('Error adding team:', error);
+      toast.error('Failed to add team');
+    }
+  };
 
   // Fetch players when a team is selected
   useEffect(() => {
@@ -115,6 +172,64 @@ const Scorekeeping = () => {
       fetchPlayers(selectedAwayTeamId, false);
     }
   }, [selectedHomeTeamId, selectedAwayTeamId]);
+
+  // Handle player creation
+  const handleAddPlayer = async (isHomeTeam: boolean) => {
+    const teamId = isHomeTeam ? selectedHomeTeamId : selectedAwayTeamId;
+    
+    if (!teamId) {
+      toast.error('Please select a team first');
+      return;
+    }
+    
+    if (!newPlayerName.trim()) {
+      toast.error('Please enter a player name');
+      return;
+    }
+    
+    try {
+      const { data, error } = await supabase
+        .from('players')
+        .insert({
+          name: newPlayerName,
+          number: newPlayerNumber,
+          position: newPlayerPosition,
+          team_id: teamId,
+          batting_average: '.000'
+        })
+        .select();
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (data && data[0]) {
+        // Add to players state
+        const playerData = {
+          id: data[0].id,
+          name: data[0].name,
+          number: data[0].number || '',
+          position: data[0].position || '',
+        };
+        
+        if (isHomeTeam) {
+          setHomeTeamPlayers(prev => [...prev, playerData]);
+          setShowHomePlayerDialog(false);
+        } else {
+          setAwayTeamPlayers(prev => [...prev, playerData]);
+          setShowAwayPlayerDialog(false);
+        }
+        
+        setNewPlayerName('');
+        setNewPlayerNumber('');
+        setNewPlayerPosition('');
+        toast.success(`${playerData.name} added to roster`);
+      }
+    } catch (error) {
+      console.error('Error adding player:', error);
+      toast.error('Failed to add player');
+    }
+  };
 
   // Update team names when selection changes
   useEffect(() => {
@@ -260,47 +375,114 @@ const Scorekeeping = () => {
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Home Team</label>
-                      <Select
-                        value={selectedHomeTeamId}
-                        onValueChange={setSelectedHomeTeamId}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select Home Team" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {teams.length > 0 ? (
-                            teams.map((team) => (
-                              <SelectItem key={team.id} value={team.id}>
-                                {team.name}
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <SelectItem value="none" disabled>No teams available</SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex space-x-2">
+                        <Select
+                          value={selectedHomeTeamId}
+                          onValueChange={setSelectedHomeTeamId}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select Home Team" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {teams.length > 0 ? (
+                              teams.map((team) => (
+                                <SelectItem key={team.id} value={team.id}>
+                                  {team.name}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="none" disabled>No teams available</SelectItem>
+                            )}
+                            <SelectItem value="create-new" className="text-baseball-green font-medium">
+                              + Create New Team
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Dialog open={showHomeTeamDialog || selectedHomeTeamId === 'create-new'} 
+                          onOpenChange={(open) => {
+                            if (!open) setSelectedHomeTeamId(previousId => previousId === 'create-new' ? '' : previousId);
+                            setShowHomeTeamDialog(open);
+                          }}
+                        >
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Create New Team</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4 py-2">
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-700">Team Name</label>
+                                <Input
+                                  value={newTeamName}
+                                  onChange={(e) => setNewTeamName(e.target.value)}
+                                  placeholder="Enter team name"
+                                />
+                              </div>
+                              <Button 
+                                className="w-full bg-baseball-green hover:bg-baseball-green/90"
+                                onClick={() => handleAddTeam(true)}
+                              >
+                                Create Team
+                              </Button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
                     </div>
+                    
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Away Team</label>
-                      <Select
-                        value={selectedAwayTeamId}
-                        onValueChange={setSelectedAwayTeamId}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select Away Team" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {teams.length > 0 ? (
-                            teams.map((team) => (
-                              <SelectItem key={team.id} value={team.id}>
-                                {team.name}
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <SelectItem value="none" disabled>No teams available</SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex space-x-2">
+                        <Select
+                          value={selectedAwayTeamId}
+                          onValueChange={setSelectedAwayTeamId}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select Away Team" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {teams.length > 0 ? (
+                              teams.map((team) => (
+                                <SelectItem key={team.id} value={team.id}>
+                                  {team.name}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="none" disabled>No teams available</SelectItem>
+                            )}
+                            <SelectItem value="create-new" className="text-baseball-green font-medium">
+                              + Create New Team
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Dialog open={showAwayTeamDialog || selectedAwayTeamId === 'create-new'} 
+                          onOpenChange={(open) => {
+                            if (!open) setSelectedAwayTeamId(previousId => previousId === 'create-new' ? '' : previousId);
+                            setShowAwayTeamDialog(open);
+                          }}
+                        >
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Create New Team</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4 py-2">
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-700">Team Name</label>
+                                <Input
+                                  value={newTeamName}
+                                  onChange={(e) => setNewTeamName(e.target.value)}
+                                  placeholder="Enter team name"
+                                />
+                              </div>
+                              <Button 
+                                className="w-full bg-baseball-green hover:bg-baseball-green/90"
+                                onClick={() => handleAddTeam(false)}
+                              >
+                                Create Team
+                              </Button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
                     </div>
                   </div>
                 </Card>
@@ -336,48 +518,158 @@ const Scorekeeping = () => {
                   <div className="flex justify-between">
                     <div className="w-1/2 pr-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Current Batter</label>
-                      <Select
-                        value={currentBatter}
-                        onValueChange={setCurrentBatter}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select Batter" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(isBottom ? homeTeamPlayers : awayTeamPlayers).length > 0 ? (
-                            (isBottom ? homeTeamPlayers : awayTeamPlayers).map((player) => (
-                              <SelectItem key={player.id} value={player.id}>
-                                {player.name} #{player.number}
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <SelectItem value="none" disabled>No players available</SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex space-x-2">
+                        <Select
+                          value={currentBatter}
+                          onValueChange={setCurrentBatter}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select Batter" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(isBottom ? homeTeamPlayers : awayTeamPlayers).length > 0 ? (
+                              (isBottom ? homeTeamPlayers : awayTeamPlayers).map((player) => (
+                                <SelectItem key={player.id} value={player.id}>
+                                  {player.name} #{player.number}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="none" disabled>No players available</SelectItem>
+                            )}
+                            <SelectItem value="create-new" className="text-baseball-green font-medium">
+                              + Add New Player
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Dialog open={isBottom ? showHomePlayerDialog || currentBatter === 'create-new' : showAwayPlayerDialog || currentBatter === 'create-new'} 
+                          onOpenChange={(open) => {
+                            if (!open) setCurrentBatter(previousId => previousId === 'create-new' ? '' : previousId);
+                            if (isBottom) {
+                              setShowHomePlayerDialog(open);
+                            } else {
+                              setShowAwayPlayerDialog(open);
+                            }
+                          }}
+                        >
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Add New Player</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4 py-2">
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium">Player Name</label>
+                                <Input
+                                  value={newPlayerName}
+                                  onChange={(e) => setNewPlayerName(e.target.value)}
+                                  placeholder="Enter player name"
+                                />
+                              </div>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium">Number</label>
+                                  <Input
+                                    value={newPlayerNumber}
+                                    onChange={(e) => setNewPlayerNumber(e.target.value)}
+                                    placeholder="Jersey number"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium">Position</label>
+                                  <Input
+                                    value={newPlayerPosition}
+                                    onChange={(e) => setNewPlayerPosition(e.target.value)}
+                                    placeholder="E.g., Pitcher, 1B"
+                                  />
+                                </div>
+                              </div>
+                              <Button 
+                                className="w-full bg-baseball-green hover:bg-baseball-green/90"
+                                onClick={() => handleAddPlayer(isBottom)}
+                              >
+                                Add Player
+                              </Button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
                     </div>
                     
                     <div className="w-1/2 pl-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Current Pitcher</label>
-                      <Select
-                        value={currentPitcher}
-                        onValueChange={setCurrentPitcher}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select Pitcher" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(isBottom ? awayTeamPlayers : homeTeamPlayers).length > 0 ? (
-                            (isBottom ? awayTeamPlayers : homeTeamPlayers).map((player) => (
-                              <SelectItem key={player.id} value={player.id}>
-                                {player.name} #{player.number}
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <SelectItem value="none" disabled>No players available</SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex space-x-2">
+                        <Select
+                          value={currentPitcher}
+                          onValueChange={setCurrentPitcher}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select Pitcher" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(isBottom ? awayTeamPlayers : homeTeamPlayers).length > 0 ? (
+                              (isBottom ? awayTeamPlayers : homeTeamPlayers).map((player) => (
+                                <SelectItem key={player.id} value={player.id}>
+                                  {player.name} #{player.number}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="none" disabled>No players available</SelectItem>
+                            )}
+                            <SelectItem value="create-new" className="text-baseball-green font-medium">
+                              + Add New Player
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Dialog open={isBottom ? showAwayPlayerDialog || currentPitcher === 'create-new' : showHomePlayerDialog || currentPitcher === 'create-new'} 
+                          onOpenChange={(open) => {
+                            if (!open) setCurrentPitcher(previousId => previousId === 'create-new' ? '' : previousId);
+                            if (isBottom) {
+                              setShowAwayPlayerDialog(open);
+                            } else {
+                              setShowHomePlayerDialog(open);
+                            }
+                          }}
+                        >
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Add New Player</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4 py-2">
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium">Player Name</label>
+                                <Input
+                                  value={newPlayerName}
+                                  onChange={(e) => setNewPlayerName(e.target.value)}
+                                  placeholder="Enter player name"
+                                />
+                              </div>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium">Number</label>
+                                  <Input
+                                    value={newPlayerNumber}
+                                    onChange={(e) => setNewPlayerNumber(e.target.value)}
+                                    placeholder="Jersey number"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium">Position</label>
+                                  <Input
+                                    value={newPlayerPosition}
+                                    onChange={(e) => setNewPlayerPosition(e.target.value)}
+                                    placeholder="E.g., Pitcher, 1B"
+                                  />
+                                </div>
+                              </div>
+                              <Button 
+                                className="w-full bg-baseball-green hover:bg-baseball-green/90"
+                                onClick={() => handleAddPlayer(!isBottom)}
+                              >
+                                Add Player
+                              </Button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
                     </div>
                   </div>
                 </Card>

@@ -1,4 +1,3 @@
-
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Calendar, ChartPieIcon, ClipboardCheck, Upload, Users } from 'lucide-react';
@@ -142,6 +141,15 @@ const Index = () => {
                       asChild
                     >
                       <Link to="/auth?register=true">Register</Link>
+                    </Button>
+                    
+                    <Button 
+                      variant="outline" 
+                      size="lg" 
+                      className="border-white text-white hover:bg-white hover:text-baseball-navy"
+                      asChild
+                    >
+                      <Link to="/teams">Manage Teams</Link>
                     </Button>
                   </>
                 )}

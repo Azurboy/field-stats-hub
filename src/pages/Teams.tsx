@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -9,6 +8,8 @@ import TeamRoster from '@/components/TeamRoster';
 import PlayerCard from '@/components/PlayerCard';
 import { toast } from 'sonner';
 import { supabase, getDefaultOwnerId } from '@/integrations/supabase/client';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { MoreVertical, Trash } from 'lucide-react';
 
 // Interface definitions for better type safety
 interface Player {
@@ -270,10 +271,33 @@ const Teams = () => {
                       className={`p-3 rounded-md cursor-pointer flex justify-between items-center ${
                         activeTeam === team.id ? 'bg-baseball-navy text-white' : 'bg-gray-100 hover:bg-gray-200'
                       }`}
-                      onClick={() => setActiveTeam(team.id)}
                     >
-                      <div className="font-medium">{team.name}</div>
-                      <div className="text-sm">{team.players.length} players</div>
+                      <div 
+                        className="font-medium flex-grow"
+                        onClick={() => setActiveTeam(team.id)}
+                      >
+                        {team.name}
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="text-sm">{team.players.length} players</div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreVertical className="h-4 w-4" />
+                              <span className="sr-only">More</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem 
+                              className="text-red-600 flex items-center cursor-pointer"
+                              onClick={() => handleDeleteTeam(team.id)}
+                            >
+                              <Trash className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
                   ))}
                 </div>
