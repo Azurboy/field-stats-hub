@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,167 +8,190 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import TeamRoster from '@/components/TeamRoster';
 import PlayerCard from '@/components/PlayerCard';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
-// Sample player data
-const sampleTeams = {
-  eagles: {
-    name: 'Eagles',
-    players: [
-      {
-        id: 'e1',
-        name: 'Mike Smith',
-        number: '12',
-        position: 'Pitcher',
-        battingAverage: '.315',
-        stats: [
-          { label: 'HR', value: 3 },
-          { label: 'RBI', value: 17 },
-          { label: 'SB', value: 5 }
-        ]
-      },
-      {
-        id: 'e2',
-        name: 'Jason Johnson',
-        number: '24',
-        position: 'Catcher',
-        battingAverage: '.287',
-        stats: [
-          { label: 'HR', value: 1 },
-          { label: 'RBI', value: 12 },
-          { label: 'SB', value: 0 }
-        ]
-      },
-      {
-        id: 'e3',
-        name: 'Carlos Rodriguez',
-        number: '8',
-        position: 'Shortstop',
-        battingAverage: '.324',
-        stats: [
-          { label: 'HR', value: 2 },
-          { label: 'RBI', value: 14 },
-          { label: 'SB', value: 8 }
-        ]
-      },
-      {
-        id: 'e4',
-        name: 'Jun Kim',
-        number: '16',
-        position: 'Outfield',
-        battingAverage: '.301',
-        stats: [
-          { label: 'HR', value: 5 },
-          { label: 'RBI', value: 22 },
-          { label: 'SB', value: 3 }
-        ]
-      }
-    ]
-  },
-  tigers: {
-    name: 'Tigers',
-    players: [
-      {
-        id: 't1',
-        name: 'Ryan Thompson',
-        number: '5',
-        position: '1st Base',
-        battingAverage: '.275',
-        stats: [
-          { label: 'HR', value: 7 },
-          { label: 'RBI', value: 28 },
-          { label: 'SB', value: 1 }
-        ]
-      },
-      {
-        id: 't2',
-        name: 'Marcus Davis',
-        number: '31',
-        position: 'Pitcher',
-        battingAverage: '.189',
-        stats: [
-          { label: 'HR', value: 0 },
-          { label: 'RBI', value: 5 },
-          { label: 'SB', value: 0 }
-        ]
-      },
-      {
-        id: 't3',
-        name: 'Kevin Wilson',
-        number: '22',
-        position: 'Catcher',
-        battingAverage: '.263',
-        stats: [
-          { label: 'HR', value: 2 },
-          { label: 'RBI', value: 15 },
-          { label: 'SB', value: 0 }
-        ]
-      },
-      {
-        id: 't4',
-        name: 'Luis Martinez',
-        number: '9',
-        position: 'Outfield',
-        battingAverage: '.310',
-        stats: [
-          { label: 'HR', value: 4 },
-          { label: 'RBI', value: 19 },
-          { label: 'SB', value: 11 }
-        ]
-      }
-    ]
-  }
-};
+// Interface definitions for better type safety
+interface Player {
+  id: string;
+  name: string;
+  number: string;
+  position: string;
+  battingAverage: string;
+  stats: { label: string; value: number }[];
+}
+
+interface Team {
+  id: string;
+  name: string;
+  players: Player[];
+}
+
+interface TeamsState {
+  [key: string]: Team;
+}
 
 const Teams = () => {
-  const [teams, setTeams] = useState(sampleTeams);
-  const [activeTeam, setActiveTeam] = useState('eagles');
+  const [teams, setTeams] = useState<TeamsState>({});
+  const [activeTeam, setActiveTeam] = useState('');
   const [newTeamName, setNewTeamName] = useState('');
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   
-  const handleAddTeam = () => {
-    if (newTeamName) {
-      const teamKey = newTeamName.toLowerCase().replace(/\s+/g, '-');
+  // Fetch teams on component mount
+  useEffect(() => {
+    fetchTeams();
+  }, []);
+
+  const fetchTeams = async () => {
+    try {
+      setIsLoading(true);
       
-      setTeams({
-        ...teams,
-        [teamKey]: {
-          name: newTeamName,
-          players: []
+      const { data: teamsData, error } = await supabase
+        .from('teams')
+        .select('id, name');
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (teamsData && teamsData.length > 0) {
+        const teamsObj: TeamsState = {};
+        
+        for (const team of teamsData) {
+          // Fetch players for this team
+          const { data: playersData, error: playersError } = await supabase
+            .from('players')
+            .select('*')
+            .eq('team_id', team.id);
+          
+          if (playersError) {
+            console.error('Error fetching players for team', team.id, playersError);
+          }
+          
+          // Format players data
+          const formattedPlayers = playersData?.map(player => ({
+            id: player.id,
+            name: player.name,
+            number: player.number || '',
+            position: player.position || '',
+            battingAverage: player.batting_average || '.000',
+            stats: [
+              { label: 'HR', value: 0 },
+              { label: 'RBI', value: 0 },
+              { label: 'SB', value: 0 }
+            ]
+          })) || [];
+          
+          // Add team to state
+          teamsObj[team.id] = {
+            id: team.id,
+            name: team.name,
+            players: formattedPlayers
+          };
         }
-      });
-      
-      setActiveTeam(teamKey);
-      setNewTeamName('');
-      toast.success(`${newTeamName} added`);
+        
+        setTeams(teamsObj);
+        
+        // Set active team to first team if no active team
+        if (!activeTeam && Object.keys(teamsObj).length > 0) {
+          setActiveTeam(Object.keys(teamsObj)[0]);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching teams:', error);
+      toast.error('Failed to fetch teams');
+    } finally {
+      setIsLoading(false);
     }
   };
   
-  const handleAddPlayer = (playerName: string, playerNumber: string, position: string) => {
-    const newPlayer = {
-      id: `${activeTeam}-${Date.now()}`,
-      name: playerName,
-      number: playerNumber,
-      position: position,
-      battingAverage: '.000',
-      stats: [
-        { label: 'HR', value: 0 },
-        { label: 'RBI', value: 0 },
-        { label: 'SB', value: 0 }
-      ]
-    };
-    
-    setTeams({
-      ...teams,
-      [activeTeam]: {
-        ...teams[activeTeam as keyof typeof teams],
-        players: [
-          ...teams[activeTeam as keyof typeof teams].players,
-          newPlayer
-        ]
+  const handleAddTeam = async () => {
+    if (newTeamName) {
+      try {
+        // Save team to database
+        const { data, error } = await supabase
+          .from('teams')
+          .insert([{ name: newTeamName }])
+          .select();
+        
+        if (error) {
+          throw error;
+        }
+        
+        if (data && data[0]) {
+          const newTeam = data[0];
+          
+          // Update local state
+          setTeams(prevTeams => ({
+            ...prevTeams,
+            [newTeam.id]: {
+              id: newTeam.id,
+              name: newTeam.name,
+              players: []
+            }
+          }));
+          
+          setActiveTeam(newTeam.id);
+          setNewTeamName('');
+          toast.success(`${newTeam.name} added`);
+        }
+      } catch (error) {
+        console.error('Error adding team:', error);
+        toast.error('Failed to add team');
       }
-    });
-    
-    toast.success(`${playerName} added to roster`);
+    }
+  };
+  
+  const handleAddPlayer = async (playerName: string, playerNumber: string, position: string) => {
+    try {
+      // Save player to database
+      const { data, error } = await supabase
+        .from('players')
+        .insert([{
+          name: playerName,
+          number: playerNumber,
+          position: position,
+          team_id: activeTeam,
+          batting_average: '.000'
+        }])
+        .select();
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (data && data[0]) {
+        const newPlayer = {
+          id: data[0].id,
+          name: playerName,
+          number: playerNumber,
+          position: position,
+          battingAverage: '.000',
+          stats: [
+            { label: 'HR', value: 0 },
+            { label: 'RBI', value: 0 },
+            { label: 'SB', value: 0 }
+          ]
+        };
+        
+        // Update local state
+        setTeams(prevTeams => ({
+          ...prevTeams,
+          [activeTeam]: {
+            ...prevTeams[activeTeam],
+            players: [
+              ...prevTeams[activeTeam].players,
+              newPlayer
+            ]
+          }
+        }));
+        
+        toast.success(`${playerName} added to roster`);
+      }
+    } catch (error) {
+      console.error('Error adding player:', error);
+      toast.error('Failed to add player');
+    }
   };
   
   const handlePlayerSelect = (playerId: string) => {
@@ -179,7 +202,7 @@ const Teams = () => {
     if (!selectedPlayer) return null;
     
     for (const teamKey in teams) {
-      const player = teams[teamKey as keyof typeof teams].players.find(p => p.id === selectedPlayer);
+      const player = teams[teamKey].players.find(p => p.id === selectedPlayer);
       if (player) return player;
     }
     
@@ -224,77 +247,87 @@ const Teams = () => {
           </Dialog>
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1">
-            <Card className="p-4 mb-6">
-              <h3 className="font-semibold text-lg mb-4">My Teams</h3>
-              
-              <div className="space-y-2">
-                {Object.entries(teams).map(([key, team]) => (
-                  <div
-                    key={key}
-                    className={`p-3 rounded-md cursor-pointer flex justify-between items-center ${
-                      activeTeam === key ? 'bg-baseball-navy text-white' : 'bg-gray-100 hover:bg-gray-200'
-                    }`}
-                    onClick={() => setActiveTeam(key)}
-                  >
-                    <div className="font-medium">{team.name}</div>
-                    <div className="text-sm">{team.players.length} players</div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-            
-            {currentPlayer && (
-              <Card className="p-4">
-                <h3 className="font-semibold text-lg mb-4">Player Details</h3>
-                
-                <div className="text-center mb-4">
-                  <div className="w-16 h-16 rounded-full bg-baseball-navy text-white flex items-center justify-center text-2xl font-bold mx-auto mb-2">
-                    {currentPlayer.number}
-                  </div>
-                  <div className="text-xl font-semibold">{currentPlayer.name}</div>
-                  <div className="text-gray-500">{currentPlayer.position}</div>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-4 mb-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">{currentPlayer.battingAverage}</div>
-                    <div className="text-xs text-gray-500">AVG</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">{currentPlayer.stats?.[0].value}</div>
-                    <div className="text-xs text-gray-500">HR</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">{currentPlayer.stats?.[1].value}</div>
-                    <div className="text-xs text-gray-500">RBI</div>
-                  </div>
-                </div>
+        {isLoading ? (
+          <div className="flex justify-center py-10">
+            <p>Loading teams...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-1">
+              <Card className="p-4 mb-6">
+                <h3 className="font-semibold text-lg mb-4">My Teams</h3>
                 
                 <div className="space-y-2">
-                  <Button 
-                    variant="outline" 
-                    className="w-full border-baseball-navy text-baseball-navy"
-                  >
-                    Edit Player
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full border-baseball-red text-baseball-red"
-                    onClick={() => setSelectedPlayer(null)}
-                  >
-                    Close
-                  </Button>
+                  {Object.values(teams).map((team) => (
+                    <div
+                      key={team.id}
+                      className={`p-3 rounded-md cursor-pointer flex justify-between items-center ${
+                        activeTeam === team.id ? 'bg-baseball-navy text-white' : 'bg-gray-100 hover:bg-gray-200'
+                      }`}
+                      onClick={() => setActiveTeam(team.id)}
+                    >
+                      <div className="font-medium">{team.name}</div>
+                      <div className="text-sm">{team.players.length} players</div>
+                    </div>
+                  ))}
                 </div>
+                
+                {Object.keys(teams).length === 0 && (
+                  <p className="text-gray-500 text-center py-4">
+                    No teams yet. Create your first team!
+                  </p>
+                )}
               </Card>
-            )}
-          </div>
-          
-          <div className="lg:col-span-2">
-            {Object.entries(teams).map(([key, team]) => (
-              activeTeam === key && (
-                <div key={key}>
+              
+              {currentPlayer && (
+                <Card className="p-4">
+                  <h3 className="font-semibold text-lg mb-4">Player Details</h3>
+                  
+                  <div className="text-center mb-4">
+                    <div className="w-16 h-16 rounded-full bg-baseball-navy text-white flex items-center justify-center text-2xl font-bold mx-auto mb-2">
+                      {currentPlayer.number}
+                    </div>
+                    <div className="text-xl font-semibold">{currentPlayer.name}</div>
+                    <div className="text-gray-500">{currentPlayer.position}</div>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-4 mb-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold">{currentPlayer.battingAverage}</div>
+                      <div className="text-xs text-gray-500">AVG</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold">{currentPlayer.stats?.[0].value}</div>
+                      <div className="text-xs text-gray-500">HR</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold">{currentPlayer.stats?.[1].value}</div>
+                      <div className="text-xs text-gray-500">RBI</div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Button 
+                      variant="outline" 
+                      className="w-full border-baseball-navy text-baseball-navy"
+                    >
+                      Edit Player
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="w-full border-baseball-red text-baseball-red"
+                      onClick={() => setSelectedPlayer(null)}
+                    >
+                      Close
+                    </Button>
+                  </div>
+                </Card>
+              )}
+            </div>
+            
+            <div className="lg:col-span-2">
+              {activeTeam && teams[activeTeam] && (
+                <div>
                   <Tabs defaultValue="roster">
                     <TabsList className="w-full">
                       <TabsTrigger value="roster" className="w-1/2">Team Roster</TabsTrigger>
@@ -303,8 +336,8 @@ const Teams = () => {
                     
                     <TabsContent value="roster">
                       <TeamRoster
-                        teamName={team.name}
-                        players={team.players}
+                        teamName={teams[activeTeam].name}
+                        players={teams[activeTeam].players}
                         onPlayerSelect={handlePlayerSelect}
                         onAddPlayer={handleAddPlayer}
                       />
@@ -312,7 +345,7 @@ const Teams = () => {
                     
                     <TabsContent value="stats">
                       <Card className="p-4">
-                        <h3 className="font-semibold text-lg mb-4">{team.name} Team Stats</h3>
+                        <h3 className="font-semibold text-lg mb-4">{teams[activeTeam].name} Team Stats</h3>
                         
                         <div className="grid grid-cols-3 gap-4 mb-6">
                           <div className="bg-baseball-lightGray p-3 rounded-lg text-center">
@@ -334,42 +367,42 @@ const Teams = () => {
                           <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
                             <div>Batting Average</div>
                             <div className="font-semibold">
-                              {team.players.length > 0 ? 
-                                team.players.sort((a, b) => 
+                              {teams[activeTeam].players.length > 0 ? 
+                                teams[activeTeam].players.sort((a, b) => 
                                   parseFloat(b.battingAverage.replace('.', '0.')) - 
                                   parseFloat(a.battingAverage.replace('.', '0.'))
-                                )[0].name : 'N/A'
-                              } ({team.players.length > 0 ? 
-                                team.players.sort((a, b) => 
+                                )[0]?.name || 'N/A' : 'N/A'
+                              } ({teams[activeTeam].players.length > 0 ? 
+                                teams[activeTeam].players.sort((a, b) => 
                                   parseFloat(b.battingAverage.replace('.', '0.')) - 
                                   parseFloat(a.battingAverage.replace('.', '0.'))
-                                )[0].battingAverage : 'N/A'})
+                                )[0]?.battingAverage || 'N/A' : 'N/A'})
                             </div>
                           </div>
                           <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
                             <div>Home Runs</div>
                             <div className="font-semibold">
-                              {team.players.length > 0 ?
-                                team.players.sort((a, b) => 
+                              {teams[activeTeam].players.length > 0 ?
+                                teams[activeTeam].players.sort((a, b) => 
                                   (b.stats?.[0].value as number) - (a.stats?.[0].value as number)
-                                )[0].name : 'N/A'
-                              } ({team.players.length > 0 ? 
-                                team.players.sort((a, b) => 
+                                )[0]?.name || 'N/A' : 'N/A'
+                              } ({teams[activeTeam].players.length > 0 ? 
+                                teams[activeTeam].players.sort((a, b) => 
                                   (b.stats?.[0].value as number) - (a.stats?.[0].value as number)
-                                )[0].stats?.[0].value : 'N/A'})
+                                )[0]?.stats?.[0].value || 'N/A' : 'N/A'})
                             </div>
                           </div>
                           <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
                             <div>RBIs</div>
                             <div className="font-semibold">
-                              {team.players.length > 0 ?
-                                team.players.sort((a, b) => 
+                              {teams[activeTeam].players.length > 0 ?
+                                teams[activeTeam].players.sort((a, b) => 
                                   (b.stats?.[1].value as number) - (a.stats?.[1].value as number)
-                                )[0].name : 'N/A'
-                              } ({team.players.length > 0 ? 
-                                team.players.sort((a, b) => 
+                                )[0]?.name || 'N/A' : 'N/A'
+                              } ({teams[activeTeam].players.length > 0 ? 
+                                teams[activeTeam].players.sort((a, b) => 
                                   (b.stats?.[1].value as number) - (a.stats?.[1].value as number)
-                                )[0].stats?.[1].value : 'N/A'})
+                                )[0]?.stats?.[1].value || 'N/A' : 'N/A'})
                             </div>
                           </div>
                         </div>
@@ -379,10 +412,22 @@ const Teams = () => {
                     </TabsContent>
                   </Tabs>
                 </div>
-              )
-            ))}
+              )}
+
+              {!activeTeam && Object.keys(teams).length > 0 && (
+                <div className="bg-white rounded-lg shadow p-10 text-center">
+                  <p className="text-gray-500">Select a team to view details</p>
+                </div>
+              )}
+
+              {Object.keys(teams).length === 0 && (
+                <div className="bg-white rounded-lg shadow p-10 text-center">
+                  <p className="text-gray-500">No teams available. Create your first team!</p>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

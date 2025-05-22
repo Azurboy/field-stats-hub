@@ -14,6 +14,13 @@ interface Team {
   name: string;
 }
 
+interface Player {
+  id: string;
+  name: string;
+  number: string;
+  position: string;
+}
+
 const Scorekeeping = () => {
   const [activeTab, setActiveTab] = useState('scorekeeping');
   const [teams, setTeams] = useState<Team[]>([]);
@@ -33,39 +40,41 @@ const Scorekeeping = () => {
   const [outs, setOuts] = useState(0);
   
   // Current batter/pitcher
-  const [currentBatter, setCurrentBatter] = useState('Select Batter');
-  const [currentPitcher, setCurrentPitcher] = useState('Select Pitcher');
+  const [currentBatter, setCurrentBatter] = useState('');
+  const [currentPitcher, setCurrentPitcher] = useState('');
   
-  // Team players (now we'll fetch these from the database)
-  const [homeTeamPlayers, setHomeTeamPlayers] = useState<{id: string; name: string; number: string}[]>([]);
-  const [awayTeamPlayers, setAwayTeamPlayers] = useState<{id: string; name: string; number: string}[]>([]);
+  // Team players
+  const [homeTeamPlayers, setHomeTeamPlayers] = useState<Player[]>([]);
+  const [awayTeamPlayers, setAwayTeamPlayers] = useState<Player[]>([]);
 
   // Fetch teams on component mount
   useEffect(() => {
-    async function fetchTeams() {
-      try {
-        setLoading(true);
-        const { data, error } = await supabase
-          .from('teams')
-          .select('id, name');
-        
-        if (error) {
-          throw error;
-        }
-        
-        if (data) {
-          setTeams(data);
-        }
-      } catch (error) {
-        console.error('Error fetching teams:', error);
-        toast.error('Failed to load teams');
-      } finally {
-        setLoading(false);
-      }
-    }
-
     fetchTeams();
   }, []);
+
+  async function fetchTeams() {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('teams')
+        .select('id, name');
+      
+      if (error) {
+        console.error('Error fetching teams:', error);
+        throw error;
+      }
+      
+      if (data) {
+        console.log('Teams fetched:', data);
+        setTeams(data);
+      }
+    } catch (error) {
+      console.error('Error fetching teams:', error);
+      toast.error('Failed to load teams');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   // Fetch players when a team is selected
   useEffect(() => {
@@ -73,16 +82,19 @@ const Scorekeeping = () => {
       if (!teamId) return;
 
       try {
+        console.log(`Fetching players for team ${teamId}`);
         const { data, error } = await supabase
           .from('players')
           .select('id, name, number, position')
           .eq('team_id', teamId);
         
         if (error) {
+          console.error(`Error fetching players for team ${teamId}:`, error);
           throw error;
         }
         
         if (data) {
+          console.log(`Players fetched for team ${teamId}:`, data);
           if (isHome) {
             setHomeTeamPlayers(data);
           } else {
@@ -200,8 +212,8 @@ const Scorekeeping = () => {
     setBalls(0);
     setStrikes(0);
     setOuts(0);
-    setCurrentBatter('Select Batter');
-    setCurrentPitcher('Select Pitcher');
+    setCurrentBatter('');
+    setCurrentPitcher('');
     toast.info('New game started');
   };
 
@@ -256,11 +268,15 @@ const Scorekeeping = () => {
                           <SelectValue placeholder="Select Home Team" />
                         </SelectTrigger>
                         <SelectContent>
-                          {teams.map((team) => (
-                            <SelectItem key={team.id} value={team.id}>
-                              {team.name}
-                            </SelectItem>
-                          ))}
+                          {teams.length > 0 ? (
+                            teams.map((team) => (
+                              <SelectItem key={team.id} value={team.id}>
+                                {team.name}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="none" disabled>No teams available</SelectItem>
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
@@ -274,11 +290,15 @@ const Scorekeeping = () => {
                           <SelectValue placeholder="Select Away Team" />
                         </SelectTrigger>
                         <SelectContent>
-                          {teams.map((team) => (
-                            <SelectItem key={team.id} value={team.id}>
-                              {team.name}
-                            </SelectItem>
-                          ))}
+                          {teams.length > 0 ? (
+                            teams.map((team) => (
+                              <SelectItem key={team.id} value={team.id}>
+                                {team.name}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="none" disabled>No teams available</SelectItem>
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
@@ -324,11 +344,15 @@ const Scorekeeping = () => {
                           <SelectValue placeholder="Select Batter" />
                         </SelectTrigger>
                         <SelectContent>
-                          {(isBottom ? homeTeamPlayers : awayTeamPlayers).map((player) => (
-                            <SelectItem key={player.id} value={player.id}>
-                              {player.name} #{player.number}
-                            </SelectItem>
-                          ))}
+                          {(isBottom ? homeTeamPlayers : awayTeamPlayers).length > 0 ? (
+                            (isBottom ? homeTeamPlayers : awayTeamPlayers).map((player) => (
+                              <SelectItem key={player.id} value={player.id}>
+                                {player.name} #{player.number}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="none" disabled>No players available</SelectItem>
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
@@ -343,11 +367,15 @@ const Scorekeeping = () => {
                           <SelectValue placeholder="Select Pitcher" />
                         </SelectTrigger>
                         <SelectContent>
-                          {(isBottom ? awayTeamPlayers : homeTeamPlayers).map((player) => (
-                            <SelectItem key={player.id} value={player.id}>
-                              {player.name} #{player.number}
-                            </SelectItem>
-                          ))}
+                          {(isBottom ? awayTeamPlayers : homeTeamPlayers).length > 0 ? (
+                            (isBottom ? awayTeamPlayers : homeTeamPlayers).map((player) => (
+                              <SelectItem key={player.id} value={player.id}>
+                                {player.name} #{player.number}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="none" disabled>No players available</SelectItem>
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
