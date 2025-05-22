@@ -172,7 +172,12 @@ const Dashboard = () => {
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" />
                       <YAxis domain={[0, 0.35]} />
-                      <Tooltip formatter={(value) => value.toFixed(3)} />
+                      <Tooltip 
+                        formatter={(value: number | string) => {
+                          // Ensure value is a number before calling toFixed
+                          return typeof value === 'number' ? value.toFixed(3) : value;
+                        }}
+                      />
                       <Bar dataKey="avg" fill="#2CA58D" />
                     </BarChart>
                   </ResponsiveContainer>
@@ -196,7 +201,7 @@ const Dashboard = () => {
                       >
                         {hitTypeData.map((entry, index) => {
                           const colors = ['#0A2342', '#2CA58D', '#F97316', '#ea384c'];
-                          return <Pie key={`cell-${index}`} fill={colors[index % colors.length]} />;
+                          return <Pie key={`cell-${index}`} dataKey="value" fill={colors[index % colors.length]} />;
                         })}
                       </Pie>
                       <Tooltip formatter={(value) => value} />
